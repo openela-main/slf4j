@@ -1,0 +1,44 @@
+From b1c0ca75ca38a7a8b50bfdfdf2c324169a6ddf02 Mon Sep 17 00:00:00 2001
+From: Michael Simacek <msimacek@redhat.com>
+Date: Mon, 19 Mar 2018 16:01:57 +0100
+Subject: [PATCH] Disallow EventData deserialization by default
+
+---
+ .../src/main/java/org/slf4j/ext/EventData.java      | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/slf4j-ext/src/main/java/org/slf4j/ext/EventData.java b/slf4j-ext/src/main/java/org/slf4j/ext/EventData.java
+index dc5b502..fa5c125 100644
+--- a/slf4j-ext/src/main/java/org/slf4j/ext/EventData.java
++++ b/slf4j-ext/src/main/java/org/slf4j/ext/EventData.java
+@@ -76,12 +76,21 @@ public class EventData implements Serializable {
+      */
+     @SuppressWarnings("unchecked")
+     public EventData(String xml) {
+-        ByteArrayInputStream bais = new ByteArrayInputStream(xml.getBytes());
+-        try {
+-            XMLDecoder decoder = new XMLDecoder(bais);
+-            this.eventData = (Map<String, Object>) decoder.readObject();
+-        } catch (Exception e) {
+-            throw new EventException("Error decoding " + xml, e);
++        if ("1".equals(System.getProperty("org.slf4j.ext.allowInsecureDeserialization"))) {
++            ByteArrayInputStream bais = new ByteArrayInputStream(xml.getBytes());
++            try {
++                XMLDecoder decoder = new XMLDecoder(bais);
++                this.eventData = (Map<String, Object>) decoder.readObject();
++            } catch (Exception e) {
++                throw new EventException("Error decoding " + xml, e);
++            }
++        } else {
++            throw new UnsupportedOperationException(
++                    "Constructing EventData from XML is vulnerable to remote " +
++                    "excution and is not allowed by default. If you're " +
++                    "completely sure the source data is trusted, you can enable " +
++                    "it by setting org.slf4j.ext.allowInsecureDeserialization " +
++                    "JVM property to 1");
+         }
+     }
+ 
+-- 
+2.14.3
+
